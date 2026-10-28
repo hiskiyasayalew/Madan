@@ -1569,7 +1569,7 @@ export default function Welcome({
                       transition={{ duration: 2.5, ease: "easeOut" }}
                       className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-white font-black tracking-[2px] sm:tracking-[3px] md:tracking-[4px] uppercase leading-tight max-w-4xl px-4 text-center font-display"
                     >
-                      IT'S THE{" "}
+                      IT&apos;S THE{" "}
                       <span className="text-[#f97316] font-black tracking-[3px] sm:tracking-[5px] md:tracking-[7px] drop-shadow-[0_0_20px_rgba(249,115,22,0.5)]">
                         ONLY STORY
                       </span>{" "}

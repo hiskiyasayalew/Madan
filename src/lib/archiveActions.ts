@@ -13,6 +13,12 @@ export interface PreachingItem {
 
 const MAX_RECORDINGS = 24;
 
+// Helper to safely extract error message from unknown catch variables
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  return String(error);
+};
+
 // Fetch all audio preaching items
 export const getArchiveItems = async (): Promise<PreachingItem[]> => {
   try {
@@ -24,8 +30,8 @@ export const getArchiveItems = async (): Promise<PreachingItem[]> => {
 
     if (error) throw error;
     return data || [];
-  } catch (error: any) {
-    console.error("Error fetching preachings:", error.message);
+  } catch (error: unknown) {
+    console.error("Error fetching preachings:", getErrorMessage(error));
     return [];
   }
 };
@@ -39,8 +45,8 @@ export const getRecordingCount = async (): Promise<number> => {
 
     if (error) throw error;
     return count || 0;
-  } catch (error: any) {
-    console.error("Error getting recording count:", error.message);
+  } catch (error: unknown) {
+    console.error("Error getting recording count:", getErrorMessage(error));
     return 0;
   }
 };
@@ -79,9 +85,10 @@ export const createArchiveItem = async (item: Omit<PreachingItem, 'id' | 'create
     await enforceMaxRecordings();
 
     return { success: true, data: insertData };
-  } catch (error: any) {
-    console.error("Error creating preaching:", error.message);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error("Error creating preaching:", message);
+    return { success: false, error: message };
   }
 };
 
@@ -111,7 +118,7 @@ const enforceMaxRecordings = async () => {
         if (record.audio_url) {
           try {
             await deleteAudioFile(record.audio_url);
-          } catch (error) {
+          } catch (error: unknown) {
             console.error(`Error deleting audio file:`, error);
           }
         }
@@ -126,8 +133,8 @@ const enforceMaxRecordings = async () => {
 
       if (deleteError) throw deleteError;
     }
-  } catch (error: any) {
-    console.error("Error enforcing max recordings:", error.message);
+  } catch (error: unknown) {
+    console.error("Error enforcing max recordings:", getErrorMessage(error));
   }
 };
 
@@ -143,9 +150,10 @@ const deleteAudioFile = async (audioUrl: string) => {
 
     if (error) throw error;
     return { success: true };
-  } catch (error: any) {
-    console.error("Error deleting audio file:", error.message);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error("Error deleting audio file:", message);
+    return { success: false, error: message };
   }
 };
 
@@ -171,9 +179,10 @@ export const deleteArchiveItem = async (id: string) => {
 
     if (error) throw error;
     return { success: true };
-  } catch (error: any) {
-    console.error("Error deleting preaching:", error.message);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error("Error deleting preaching:", message);
+    return { success: false, error: message };
   }
 };
 
@@ -189,8 +198,9 @@ export const updateArchiveItem = async (id: string, updates: Partial<PreachingIt
 
     if (error) throw error;
     return { success: true, data };
-  } catch (error: any) {
-    console.error("Error updating preaching:", error.message);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error("Error updating preaching:", message);
+    return { success: false, error: message };
   }
 };

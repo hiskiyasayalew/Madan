@@ -84,7 +84,7 @@ const GuestHouseLayoutSection = () => {
           className="text-neutral-400 leading-relaxed font-normal tracking-tight"
         >
           <span className="font-black text-3xl md:text-5xl text-white block mb-8 uppercase tracking-tighter italic">
-            "A place of quiet contemplation"
+            &ldquo;A place of quiet contemplation&rdquo;
           </span>
           
           <span className="block max-w-2xl mx-auto text-lg md:text-xl font-light text-neutral-300 mb-6">

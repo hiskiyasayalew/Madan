@@ -1,23 +1,25 @@
-"use server"
+"use server";
 
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+);
 
 // ... existing getPendingRequests and getAllUsers ...
 export async function getFrontendCards() {
   const { data, error } = await supabaseAdmin
     .from("frontend_cards")
     .select("*")
-    .order('created_at', { ascending: true });
+    .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
 }
 
-export async function upsertFrontendCard(cardData: any) {
+export async function upsertFrontendCard(
+  cardData: Record<string, unknown> & { id?: string }
+) {
   // Ensure we don't send a null ID for a new record
   const cleanData = { ...cardData };
   if (!cleanData.id) delete cleanData.id;
@@ -26,7 +28,7 @@ export async function upsertFrontendCard(cardData: any) {
     .from("frontend_cards")
     .upsert(cleanData)
     .select();
-    
+
   if (error) throw error;
   return data[0];
 }
@@ -43,7 +45,7 @@ export async function getAllUsers() {
   const { data, error } = await supabaseAdmin
     .from("users")
     .select("*")
-    .order('created_at', { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return data;
 }
@@ -58,20 +60,21 @@ export async function getPendingRequests() {
 }
 
 // CREATE USER (Manual)
-// CREATE USER (Manual)
-export async function createAdminUser(userData: any) {
+export async function createAdminUser(
+  userData: Record<string, unknown> & { email: string; password?: string }
+) {
   // 1. Create auth user with the specific password entered by the Admin
   const { data: authUser, error: authError } =
     await supabaseAdmin.auth.admin.createUser({
       email: userData.email,
       password: userData.password || "TempPassword123!", // uses the admin's chosen password
-      email_confirm: true
+      email_confirm: true,
     });
 
   if (authError) throw authError;
 
   // 2. Extract password so we do NOT send it to the public 'users' table
-  const { password, ...cleanUserData } = userData;
+  const { password: _password, ...cleanUserData } = userData;
 
   // 3. Insert into your users table
   const { data, error } = await supabaseAdmin
@@ -81,8 +84,8 @@ export async function createAdminUser(userData: any) {
         id: authUser.user.id, // 🔑 matches Auth UID
         ...cleanUserData,
         status: "active",
-        role: "user"
-      }
+        role: "user",
+      },
     ])
     .select();
 
@@ -92,7 +95,10 @@ export async function createAdminUser(userData: any) {
 }
 
 // UPDATE USER
-export async function updateUser(id: string, userData: any) {
+export async function updateUser(
+  id: string,
+  userData: Record<string, unknown>
+) {
   const { data, error } = await supabaseAdmin
     .from("users")
     .update(userData)
@@ -113,13 +119,12 @@ export async function deleteUser(id: string) {
   if (error) throw error;
   return { success: true };
 }
-// Add these to your existing adminActions.ts
 
 export async function getSubAdmins() {
   const { data, error } = await supabaseAdmin
     .from("users")
     .select("*")
-    .or('role.eq.sub-admin, assigned_service.neq.{}');
+    .or("role.eq.sub-admin, assigned_service.neq.{}");
   if (error) throw error;
   return data;
 }
@@ -130,13 +135,13 @@ export async function promoteToSubAdmin(userId: string, serviceTypes: string[]) 
     // Ensure we don't assign duplicates
     const uniqueRoles = [...new Set(serviceTypes)];
 
-    const updateData: any = {
-      assigned_service: uniqueRoles
-    };
-
     // If any role is a manager (not "Church Leaders"), grant sub-admin role
-    const hasManagerRole = uniqueRoles.some(s => s !== "Church Leaders");
-    updateData.role = hasManagerRole ? "sub-admin" : "user";
+    const hasManagerRole = uniqueRoles.some((s) => s !== "Church Leaders");
+
+    const updateData: { assigned_service: string[]; role: string } = {
+      assigned_service: uniqueRoles,
+      role: hasManagerRole ? "sub-admin" : "user",
+    };
 
     const { data, error } = await supabaseAdmin
       .from("users")
@@ -146,23 +151,26 @@ export async function promoteToSubAdmin(userId: string, serviceTypes: string[]) 
 
     if (error) throw error;
     return { success: true, data: data[0] };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Promotion Action Failed:", err);
     throw err;
   }
 }
+
 // --- INVENTORY ACTIONS ---
 
 export async function getInventory() {
   const { data, error } = await supabaseAdmin
     .from("inventory")
     .select("*")
-    .order('category', { ascending: true });
+    .order("category", { ascending: true });
   if (error) throw error;
   return data;
 }
 
-export async function upsertInventoryItem(itemData: any) {
+export async function upsertInventoryItem(
+  itemData: Record<string, unknown> & { id?: string }
+) {
   const cleanData = { ...itemData };
   if (!cleanData.id) delete cleanData.id;
 
@@ -170,7 +178,7 @@ export async function upsertInventoryItem(itemData: any) {
     .from("inventory")
     .upsert(cleanData)
     .select();
-    
+
   if (error) throw error;
   return data[0];
 }
@@ -186,9 +194,9 @@ export async function deleteInventoryItem(id: string) {
 export async function demoteToUser(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("users")
-    .update({ 
+    .update({
       role: "user",
-      assigned_service: [] 
+      assigned_service: [],
     })
     .eq("id", userId)
     .select();
@@ -196,6 +204,7 @@ export async function demoteToUser(userId: string) {
   if (error) throw error;
   return data[0];
 }
+
 // --- SERVICE SUMMARY ACTIONS ---
 // lib/adminActions.ts
 export async function getLatestSummary() {
@@ -203,21 +212,23 @@ export async function getLatestSummary() {
     const { data, error } = await supabaseAdmin
       .from("service_summaries")
       .select("*")
-      .order('service_date', { ascending: false })
+      .order("service_date", { ascending: false })
       .limit(1)
       .maybeSingle(); // maybeSingle prevents errors if no row is found
-    
+
     if (error) {
-        console.error("Summary fetch error:", error);
-        return null; // Return null instead of throwing
+      console.error("Summary fetch error:", error);
+      return null; // Return null instead of throwing
     }
     return data;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
-export async function updateServiceSummary(summaryData: any) {
+export async function updateServiceSummary(
+  summaryData: Record<string, unknown> & { id?: string }
+) {
   // Ensure we don't send a null or empty ID property for a new record
   const cleanData = { ...summaryData };
   if (!cleanData.id) {
@@ -245,16 +256,20 @@ export async function deleteServiceSummary(id: string) {
   if (error) throw error;
   return { success: true };
 }
+
 export async function getReservations() {
   const { data, error } = await supabaseAdmin
     .from("guest_house_reservations")
     .select("*")
-    .order('created_at', { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return data;
 }
 
-export async function updateReservationStatus(id: string, status: 'approved' | 'rejected') {
+export async function updateReservationStatus(
+  id: string,
+  status: "approved" | "rejected"
+) {
   const { data, error } = await supabaseAdmin
     .from("guest_house_reservations")
     .update({ status })
@@ -290,7 +305,7 @@ export async function updateRequestStatus(
   if (newStatus === "rejected") {
     await supabaseAdmin.from("profiles").delete().eq("id", id);
     // Optional: Delete from auth.users too if you want them totally gone
-    await supabaseAdmin.auth.admin.deleteUser(id); 
+    await supabaseAdmin.auth.admin.deleteUser(id);
     return { success: true };
   }
 
@@ -319,7 +334,7 @@ export async function updateRequestStatus(
         username: request.username,
         email: request.email,
         phone: request.phone,
-        city: request.city,       // Added
+        city: request.city, // Added
         subcity: request.subcity, // Added
         woreda: request.woreda,
         gender: request.gender,
@@ -348,41 +363,41 @@ export async function updateRequestStatus(
 export async function uploadLeaderImage(file: File, fileName: string) {
   try {
     // Upload to storage using service role (bypasses RLS for upload)
-    const { data, error } = await supabaseAdmin.storage
-      .from('leader-images')
+    const { error } = await supabaseAdmin.storage
+      .from("leader-images")
       .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: true
+        cacheControl: "3600",
+        upsert: true,
       });
-    
+
     if (error) {
-      console.error('Upload error details:', error);
+      console.error("Upload error details:", error);
       throw error;
     }
-    
+
     // Get public URL
-    const { data: { publicUrl } } = supabaseAdmin.storage
-      .from('leader-images')
-      .getPublicUrl(fileName);
-    
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage.from("leader-images").getPublicUrl(fileName);
+
     return publicUrl;
   } catch (error) {
-    console.error('Upload failed:', error);
+    console.error("Upload failed:", error);
     throw error;
   }
 }
 
 export async function deleteLeaderImage(imageUrl: string) {
   if (!imageUrl) return;
-  
-  const fileName = imageUrl.split('/').pop();
+
+  const fileName = imageUrl.split("/").pop();
   if (!fileName) return;
-  
+
   const { error } = await supabaseAdmin.storage
-    .from('leader-images')
+    .from("leader-images")
     .remove([fileName]);
-  
-  if (error) console.error('Error deleting image:', error);
+
+  if (error) console.error("Error deleting image:", error);
 }
 
 export async function getLeaderFrontendCards() {
@@ -390,30 +405,32 @@ export async function getLeaderFrontendCards() {
     const { data, error } = await supabaseAdmin
       .from("leader_cards")
       .select("*")
-      .order('order', { ascending: true });
-    
+      .order("order", { ascending: true });
+
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error fetching leaders:', error);
+    console.error("Error fetching leaders:", error);
     throw error;
   }
 }
 
-export async function upsertLeaderFrontendCard(cardData: any) {
+export async function upsertLeaderFrontendCard(
+  cardData: Record<string, unknown> & { id?: string }
+) {
   try {
     const cleanData = { ...cardData };
     if (!cleanData.id) delete cleanData.id;
-    
+
     const { data, error } = await supabaseAdmin
       .from("leader_cards")
       .upsert(cleanData)
       .select();
-    
+
     if (error) throw error;
     return data[0];
   } catch (error) {
-    console.error('Error upserting leader:', error);
+    console.error("Error upserting leader:", error);
     throw error;
   }
 }
@@ -424,46 +441,52 @@ export async function deleteLeaderFrontendCard(id: string) {
       .from("leader_cards")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
     return { success: true };
   } catch (error) {
-    console.error('Error deleting leader:', error);
+    console.error("Error deleting leader:", error);
     throw error;
   }
 }
 
 // lib/adminActions.ts
 
-export async function uploadNewsImage(file: File, fileName: string, userId: string) {
+export async function uploadNewsImage(
+  file: File,
+  fileName: string,
+  userId: string
+) {
   try {
     // 1. Check if user has Frontend Manager role
     const { data: user, error: userError } = await supabaseAdmin
-      .from('users')
-      .select('assigned_service')
-      .eq('id', userId)
+      .from("users")
+      .select("assigned_service")
+      .eq("id", userId)
       .single();
 
-    if (userError || !user) throw new Error('User not found');
-    if (!user.assigned_service?.includes('Frontend Manager')) {
-      throw new Error('You do not have permission to upload news images.');
+    if (userError || !user) throw new Error("User not found");
+    if (!user.assigned_service?.includes("Frontend Manager")) {
+      throw new Error("You do not have permission to upload news images.");
     }
 
     // 2. Upload
-    const { data, error } = await supabaseAdmin.storage
-      .from('frontend-assets')
+    const { error } = await supabaseAdmin.storage
+      .from("frontend-assets")
       .upload(`news-assets/${fileName}`, file, {
-        cacheControl: '3600',
-        upsert: true
+        cacheControl: "3600",
+        upsert: true,
       });
     if (error) throw error;
 
-    const { data: { publicUrl } } = supabaseAdmin.storage
-      .from('frontend-assets')
+    const {
+      data: { publicUrl },
+    } = supabaseAdmin.storage
+      .from("frontend-assets")
       .getPublicUrl(`news-assets/${fileName}`);
     return publicUrl;
   } catch (error) {
-    console.error('Upload failed:', error);
+    console.error("Upload failed:", error);
     throw error;
   }
 }

@@ -372,7 +372,7 @@ const AboutHeroSection = () => {
                       {t.aboutHero.harmonyYears}
                     </h2>
                     <p className="text-[10px] md:text-[13px] text-[#F79520] italic border-l-0 md:border-l-2 border-[#F79520] px-4 md:pl-6 mb-4 md:mb-8 font-medium">
-                      "{t.aboutHero.harmonyQuote}"
+                     &ldquo;{t.aboutHero.harmonyQuote}&rdquo; 
                     </p>
                     <p className="hidden md:block text-[12px] text-zinc-400 leading-relaxed mb-8">
                       {t.aboutHero.harmonyDescription}

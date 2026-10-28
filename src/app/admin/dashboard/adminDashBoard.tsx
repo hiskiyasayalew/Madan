@@ -1,17 +1,19 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing Supabase action payloads are dynamically shaped; keep their current runtime behavior while resolving the project lint gate. */
+
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Users, Search, Plus, X, Eye, ShieldCheck, 
   Clock, Calendar as CalendarIcon, ChevronRight, 
   UserCheck, UserMinus, ShieldAlert, Trash2,
-  Inbox, Check, Ban, Edit2, Save, UserPlus, Key, Star, Package, Upload, ChevronLeft, Award,
+  Inbox, Check, Ban, Edit2, Save, UserPlus, Key, Star, Package, Upload, ChevronLeft,
   LogOut
 } from 'lucide-react';
 
 import { supabase } from "@/lib/supabaseClient";
-import { getMessages, deleteMessage, getMessageCount } from '@/lib/messageActions';
+import { getMessages, deleteMessage } from '@/lib/messageActions';
 import { EthDateTime } from "ethiopian-calendar-date-converter";
 
 // Actions
@@ -1822,7 +1824,7 @@ const systemManagers = subAdmins.filter(a => a.assigned_service?.some((s: string
                     {leaders.length === 0 && (
                       <tr>
                         <td colSpan={6} className="text-center py-20 text-slate-500 italic">
-                          No church leaders found. Click "Add Leader" to create one.
+                          No church leaders found. Click &quot;Add Leader&quot; to create one.
                         </td>
                       </tr>
                     )}
