@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 /* ---------------- Reveal Animations ---------------- */
@@ -56,70 +56,110 @@ type LabeledBlockProps = {
 const ROOM_INFO: Record<RoomKey, string> = {
   bedroomA:
     "Primary guest bedroom featuring a triple-bed configuration, premium linens, and integrated storage solutions for long-term stays.",
+
   bedroomB:
     "Secondary guest suite optimized for shared occupancy, featuring high ceilings and easy access to the main restroom facilities.",
+
   bedroomCTop:
     "The Grand Family Suite. Our largest sleeping area designed with a master layout and additional bedding for children or groups.",
+
   bedroomCBottom:
     "Executive Double Room. A compact yet highly functional space designed for comfort and flexible furniture arrangements.",
+
   hall:
     "The heart of the house. A spacious communal area designed for relaxation, group activities, and seamless circulation between wings.",
+
   balcony:
     "An expansive open-air transition zone. Perfect for morning coffee, evening relaxation, and providing natural cross-ventilation.",
+
   kitchen:
     "A fully equipped culinary space featuring modern appliances, prep surfaces, and essential utilities for guest meal preparation.",
 };
 
 /* ---------------- Modal ---------------- */
 
-const RoomModal = ({
-  room,
-  onClose,
-}: {
+type RoomModalProps = {
   room: RoomKey | null;
   onClose: () => void;
-}) => (
-  <AnimatePresence>
-    {room && (
-      <motion.div
-        className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
+};
+
+const RoomModal = ({ room, onClose }: RoomModalProps) => {
+  useEffect(() => {
+    if (!room) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [room, onClose]);
+
+  return (
+    <AnimatePresence>
+      {room && (
         <motion.div
-          className="bg-neutral-900 rounded-3xl overflow-hidden w-full max-w-md shadow-2xl border border-orange-500/30"
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          role="presentation"
         >
-          <div className="h-2 bg-orange-500 w-full" />
+          <motion.div
+            className="bg-neutral-900 rounded-3xl overflow-hidden w-full max-w-md shadow-2xl border border-orange-500/30"
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 25,
+            }}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="room-modal-title"
+            aria-describedby="room-modal-description"
+          >
+            <div className="h-2 bg-orange-500 w-full" />
 
-          <div className="p-8">
-            <h2 className="text-3xl font-black text-white mb-2 uppercase italic tracking-tighter">
-              {room.replace(/([A-Z])/g, " $1").trim()}
-            </h2>
+            <div className="p-8">
+              <h2
+                id="room-modal-title"
+                className="text-3xl font-black text-white mb-2 uppercase italic tracking-tighter"
+              >
+                {room.replace(/([A-Z])/g, " $1").trim()}
+              </h2>
 
-            <div className="w-12 h-1 bg-orange-500 mb-6 rounded-full" />
+              <div className="w-12 h-1 bg-orange-500 mb-6 rounded-full" />
 
-            <p className="text-neutral-300 leading-relaxed text-lg font-light italic">
-              &quot;{ROOM_INFO[room]}&quot;
-            </p>
+              <p
+                id="room-modal-description"
+                className="text-neutral-300 leading-relaxed text-lg font-light italic"
+              >
+                &quot;{ROOM_INFO[room]}&quot;
+              </p>
 
-            <button
-              onClick={onClose}
-              className="mt-8 w-full py-4 bg-orange-500 hover:bg-orange-600 text-black rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20"
-            >
-              Back to Plan
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-8 w-full py-4 bg-orange-500 hover:bg-orange-600 text-black rounded-xl font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+              >
+                Back to Plan
+              </button>
+            </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
+      )}
+    </AnimatePresence>
+  );
+};
 
 /* ---------------- Room Component ---------------- */
 
@@ -131,19 +171,23 @@ const Room = ({
   children,
 }: RoomProps) => {
   return (
-    <motion.div
+    <motion.button
+      type="button"
       variants={rainItem}
       whileHover={{ scale: 1.02, zIndex: 10 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => onClick?.(id)}
-      className={`group relative cursor-pointer border-2 border-black bg-orange-500 rounded-xl flex items-center justify-center text-xs md:text-sm font-black text-black shadow-[0_4px_20px_rgba(249,115,22,0.1)] hover:shadow-[0_10px_30px_rgba(249,115,22,0.4)] transition-all duration-300 overflow-hidden ${className}`}
+      aria-label={`View ${label} details`}
+      className={`group relative cursor-pointer border-2 border-black bg-orange-500 rounded-xl flex items-center justify-center text-xs md:text-sm font-black text-black shadow-[0_4px_20px_rgba(249,115,22,0.1)] hover:shadow-[0_10px_30px_rgba(249,115,22,0.4)] transition-shadow duration-300 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black ${className}`}
     >
-      <span className="z-10 text-center px-2 uppercase tracking-tighter">
+      <span className="relative z-10 text-center px-2 uppercase tracking-tighter pointer-events-none">
         {label}
       </span>
 
-      {children}
-    </motion.div>
+      <span className="absolute inset-0 pointer-events-none">
+        {children}
+      </span>
+    </motion.button>
   );
 };
 
@@ -160,6 +204,7 @@ const HorizontalBed = ({ className }: { className: string }) => (
   <motion.div
     variants={rainItem}
     className={`absolute ${className} ${BedStyle}`}
+    aria-hidden="true"
   >
     <Pillow />
   </motion.div>
@@ -169,6 +214,7 @@ const VerticalBed = ({ className }: { className: string }) => (
   <motion.div
     variants={rainItem}
     className={`absolute ${className} ${BedStyle} flex-col items-center pt-0 pl-1`}
+    aria-hidden="true"
   >
     <div className="w-1 h-1/2 bg-neutral-700 rounded-full" />
   </motion.div>
@@ -207,7 +253,10 @@ const BedsBedroomCBottom = () => (
 
 /* ---------------- Bathroom & Utility Blocks ---------------- */
 
-const Bathroom = ({ label, className = "" }: LabeledBlockProps) => (
+const Bathroom = ({
+  label,
+  className = "",
+}: LabeledBlockProps) => (
   <div
     className={`border-2 border-black bg-neutral-900 text-orange-500 rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black uppercase tracking-widest ${className}`}
   >
@@ -215,7 +264,10 @@ const Bathroom = ({ label, className = "" }: LabeledBlockProps) => (
   </div>
 );
 
-const UtilityBlock = ({ label, className = "" }: LabeledBlockProps) => (
+const UtilityBlock = ({
+  label,
+  className = "",
+}: LabeledBlockProps) => (
   <div
     className={`border-2 border-black bg-orange-600 text-black rounded-xl flex items-center justify-center text-[10px] md:text-xs font-black uppercase tracking-widest ${className}`}
   >
@@ -225,26 +277,64 @@ const UtilityBlock = ({ label, className = "" }: LabeledBlockProps) => (
 
 /* ---------------- Stats Dashboard ---------------- */
 
+const STATS_DATA = [
+  { label: "Kitchens", value: 2 },
+  { label: "Bedrooms", value: 4 },
+  { label: "Bathrooms", value: 4 },
+  { label: "Total Beds", value: 20 },
+] as const;
+
 const Counter = ({ value }: { value: number }) => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    let start = 0;
+    let animationFrame = 0;
+    let startTime: number | null = null;
+
     const duration = 1000;
-    const step = value / (duration / 16);
 
-    const timer = setInterval(() => {
-      start += step;
-
-      if (start >= value) {
-        setCount(value);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
+    const animate = (timestamp: number) => {
+      if (startTime === null) {
+        startTime = timestamp;
       }
-    }, 16);
 
-    return () => clearInterval(timer);
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Ease-out animation for a smoother finish.
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+      setCount(
+        progress >= 1
+          ? value
+          : Math.floor(easedProgress * value)
+      );
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    if (value <= 0) {
+      setCount(0);
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (prefersReducedMotion) {
+      setCount(value);
+      return;
+    }
+
+    setCount(0);
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+    };
   }, [value]);
 
   return <span>{count}</span>;
@@ -254,25 +344,26 @@ const StatsSection = () => {
   const [hasAnimated, setHasAnimated] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  const statsData = [
-    { label: "Kitchens", value: 2 },
-    { label: "Bedrooms", value: 4 },
-    { label: "Bathrooms", value: 4 },
-    { label: "Total Beds", value: 20 },
-  ];
-
   useEffect(() => {
     const element = sectionRef.current;
 
-    if (!element) return;
+    if (!element || hasAnimated) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setHasAnimated(true);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setHasAnimated(true);
-          }
-        });
+        const isVisible = entries.some(
+          (entry) => entry.isIntersecting
+        );
+
+        if (isVisible) {
+          setHasAnimated(true);
+          observer.disconnect();
+        }
       },
       { threshold: 0.3 }
     );
@@ -280,7 +371,7 @@ const StatsSection = () => {
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [hasAnimated]);
 
   return (
     <div
@@ -288,10 +379,14 @@ const StatsSection = () => {
       className="w-[90%] max-w-6xl m-auto mt-20 mb-20 p-8 bg-neutral-900 rounded-[2.5rem] border border-neutral-800 shadow-2xl"
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsData.map((stat) => (
+        {STATS_DATA.map((stat) => (
           <div key={stat.label} className="text-center p-6">
-            <div className="text-5xl font-black text-orange-500 mb-2">
-              {hasAnimated ? <Counter value={stat.value} /> : 0}
+            <div className="text-5xl font-black text-orange-500 mb-2 tabular-nums">
+              {hasAnimated ? (
+                <Counter value={stat.value} />
+              ) : (
+                0
+              )}
             </div>
 
             <p className="font-bold text-neutral-500 uppercase tracking-widest text-[10px]">
@@ -307,19 +402,31 @@ const StatsSection = () => {
 /* ---------------- Main Layout ---------------- */
 
 export default function GuestHouseLayout() {
-  const [selectedRoom, setSelectedRoom] = useState<RoomKey | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomKey | null>(
+    null
+  );
+
+  const handleRoomClick = (id: RoomKey) => {
+    setSelectedRoom(id);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedRoom(null);
+  };
 
   return (
     <div className="min-h-screen bg-neutral-950 py-16 px-4">
       <RoomModal
         room={selectedRoom}
-        onClose={() => setSelectedRoom(null)}
+        onClose={handleCloseModal}
       />
 
       <motion.div
         className="max-w-7xl mx-auto"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
       >
         <div className="overflow-x-auto pb-12 scrollbar-hide">
           <motion.div
@@ -327,6 +434,7 @@ export default function GuestHouseLayout() {
             variants={rainContainer}
             initial="hidden"
             whileInView="show"
+            viewport={{ once: true, amount: 0.15 }}
           >
             {/* Grid Layout */}
 
@@ -338,7 +446,7 @@ export default function GuestHouseLayout() {
                   id="bedroomA"
                   label="Bedroom A"
                   className="h-44"
-                  onClick={setSelectedRoom}
+                  onClick={handleRoomClick}
                 >
                   <BedsBedroomA />
                 </Room>
@@ -347,7 +455,7 @@ export default function GuestHouseLayout() {
                   id="bedroomB"
                   label="Bedroom B"
                   className="h-44"
-                  onClick={setSelectedRoom}
+                  onClick={handleRoomClick}
                 >
                   <BedsBedroomB />
                 </Room>
@@ -356,10 +464,13 @@ export default function GuestHouseLayout() {
                   id="kitchen"
                   label="Service Kitchen"
                   className="h-20 bg-orange-600"
-                  onClick={setSelectedRoom}
+                  onClick={handleRoomClick}
                 />
 
-                <Bathroom label="Bath A" className="h-20" />
+                <Bathroom
+                  label="Bath A"
+                  className="h-20"
+                />
 
                 <div className="col-span-2">
                   <Bathroom
@@ -375,7 +486,7 @@ export default function GuestHouseLayout() {
                 id="hall"
                 label="Main Gathering Hall"
                 className="col-span-4 h-full min-h-[340px]"
-                onClick={setSelectedRoom}
+                onClick={handleRoomClick}
               />
 
               {/* Right Wing */}
@@ -385,7 +496,7 @@ export default function GuestHouseLayout() {
                   id="bedroomCTop"
                   label="Bedroom C"
                   className="col-span-3 h-44"
-                  onClick={setSelectedRoom}
+                  onClick={handleRoomClick}
                 >
                   <BedsBedroomCTop />
                 </Room>
@@ -394,7 +505,7 @@ export default function GuestHouseLayout() {
                   id="bedroomCBottom"
                   label="Bedroom D"
                   className="col-span-2 h-32"
-                  onClick={setSelectedRoom}
+                  onClick={handleRoomClick}
                 >
                   <BedsBedroomCBottom />
                 </Room>
@@ -418,7 +529,7 @@ export default function GuestHouseLayout() {
                 id="balcony"
                 label="Open Air Balcony"
                 className="col-span-8 h-32 bg-orange-400 border-dashed border-black/30"
-                onClick={setSelectedRoom}
+                onClick={handleRoomClick}
               />
 
               <div className="col-span-2 h-32 bg-neutral-900 border-2 border-neutral-800 rounded-xl flex items-center justify-center text-[10px] text-neutral-500 font-bold uppercase tracking-widest">

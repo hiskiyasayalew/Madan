@@ -1,26 +1,58 @@
+
 "use client";
 
-import { motion, useTransform, MotionValue, useSpring } from "framer-motion";
+import {
+  motion,
+  useTransform,
+  MotionValue,
+  useSpring,
+  useMotionValue,
+} from "framer-motion";
+import { useEffect } from "react";
 
 interface ServicesMaskProps {
   progress: MotionValue<number>;
 }
 
 export default function ServicesMask({ progress }: ServicesMaskProps) {
-  const maxRadius = Math.sqrt(
-    window.innerWidth ** 2 + window.innerHeight ** 2
-  ) / 2;
+  const maxRadius = useMotionValue(0);
 
-  const holeRadiusRaw = useTransform(progress, [0, 1], [60, maxRadius]);
-  const holeRadius = useSpring(holeRadiusRaw, { stiffness: 90, damping: 20 });
+  useEffect(() => {
+    const updateMaxRadius = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-  const maskImage = useTransform(
-    holeRadius,
-    (radius: number) =>
-      `radial-gradient(circle at center, transparent ${Math.round(
-        radius
-      )}px, black ${Math.round(radius) + 1}px)`
-  );
+      maxRadius.set(Math.hypot(width, height) / 2);
+    };
+
+    updateMaxRadius();
+
+    window.addEventListener("resize", updateMaxRadius, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("resize", updateMaxRadius);
+    };
+  }, [maxRadius]);
+
+  const holeRadiusRaw = useTransform(() => {
+  const currentProgress = progress.get();
+  const radius = maxRadius.get();
+
+  return 60 + currentProgress * (radius - 60);
+});
+
+  const holeRadius = useSpring(holeRadiusRaw, {
+    stiffness: 90,
+    damping: 20,
+  });
+
+  const maskImage = useTransform(holeRadius, (radius) => {
+    const roundedRadius = Math.round(radius);
+
+    return `radial-gradient(circle at center, transparent ${roundedRadius}px, black ${roundedRadius + 1}px)`;
+  });
 
   return (
     <section className="fixed w-screen h-screen">
@@ -38,14 +70,16 @@ export default function ServicesMask({ progress }: ServicesMaskProps) {
 
         {/* White text underneath the mask */}
         <div className="absolute inset-0 flex flex-col items-start justify-end p-8 z-0">
-            <p className="text-lg md:text-2xl font-light text-white">
+          <p className="text-lg md:text-2xl font-light text-white">
             A Great
           </p>
+
           <h1 className="text-4xl md:text-9xl font-bold mb-2 text-white">
-           LIGHT
+            LIGHT
           </h1>
+
           <p className="text-lg md:text-4xl font-light text-white">
-           Cannot be Hidden
+            Cannot be Hidden
           </p>
         </div>
 
@@ -61,17 +95,19 @@ export default function ServicesMask({ progress }: ServicesMaskProps) {
             maskPosition: "center",
             WebkitMaskSize: "cover",
             maskSize: "cover",
-            backgroundColor: "#f8f5e5ff", // the "mask" color that hides the video and white text
+            backgroundColor: "#f8f5e5ff",
           }}
         >
-              <p className="text-lg md:text-2xl font-light text-black">
+          <p className="text-lg md:text-2xl font-light text-black">
             A Great
           </p>
+
           <h1 className="text-4xl md:text-9xl font-bold mb-2 text-black">
             LIGHT
           </h1>
-           <p className="text-lg md:text-4xl font-light text-white">
-           Cannot be Hidden
+
+          <p className="text-lg md:text-4xl font-light text-white">
+            Cannot be Hidden
           </p>
         </motion.div>
       </div>

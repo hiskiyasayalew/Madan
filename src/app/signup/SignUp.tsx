@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo, memo } from "react";
 import Head from "next/head";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { signUpUser } from "@/lib/signup";
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../context/LanguageContext';
 import { translations } from '../lib/translations';
+
+const SMOOTH_EASE = [0.22, 1, 0.36, 1] as const;
 
 // --- 1. TYPES & INTERFACES ---
 export interface SignUpFormData {
@@ -36,13 +38,17 @@ const AlertPopup = ({ message, onClose, t }: { message: string; onClose: () => v
     initial={{ opacity: 0 }} 
     animate={{ opacity: 1 }} 
     exit={{ opacity: 0 }}
+    transition={{ duration: 0.16, ease: "easeOut" }}
+    style={{ willChange: "opacity" }}
     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
   >
     <motion.div 
-      initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+      initial={{ scale: 0.94, opacity: 0, y: 10 }} 
       animate={{ scale: 1, opacity: 1, y: 0 }} 
-      exit={{ scale: 0.9, opacity: 0, y: 20 }}
-      className="bg-white/10 backdrop-blur-2xl p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center border border-white/20"
+      exit={{ scale: 0.96, opacity: 0, y: 6 }}
+      transition={{ duration: 0.2, ease: SMOOTH_EASE }}
+      style={{ willChange: "transform, opacity" }}
+      className="bg-white/10 backdrop-blur-2xl p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center border border-white/20 transform-gpu"
     >
       <div className="w-16 h-16 bg-orange-500/20 text-orange-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-orange-500/30">
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +58,7 @@ const AlertPopup = ({ message, onClose, t }: { message: string; onClose: () => v
       <p className="text-white font-bold text-lg mb-6 leading-tight">{message}</p>
       <button 
         onClick={onClose}
-        className="w-full bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white font-bold py-3 rounded-full hover:brightness-110 transition-all shadow-lg shadow-orange-500/20"
+        className="w-full bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white font-bold py-3 rounded-full hover:brightness-110 active:scale-95 transition-[filter,transform] duration-150 ease-out transform-gpu shadow-lg shadow-orange-500/20"
       >
         {t.signup.dismiss || "Dismiss"}
       </button>
@@ -66,13 +72,17 @@ const SuccessPopup = ({ message, onClose, t }: { message: string; onClose: () =>
     initial={{ opacity: 0 }} 
     animate={{ opacity: 1 }} 
     exit={{ opacity: 0 }}
+    transition={{ duration: 0.16, ease: "easeOut" }}
+    style={{ willChange: "opacity" }}
     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
   >
     <motion.div 
-      initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+      initial={{ scale: 0.94, opacity: 0, y: 10 }} 
       animate={{ scale: 1, opacity: 1, y: 0 }} 
-      exit={{ scale: 0.9, opacity: 0, y: 20 }}
-      className="bg-white/10 backdrop-blur-2xl p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center border border-white/20"
+      exit={{ scale: 0.96, opacity: 0, y: 6 }}
+      transition={{ duration: 0.2, ease: SMOOTH_EASE }}
+      style={{ willChange: "transform, opacity" }}
+      className="bg-white/10 backdrop-blur-2xl p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center border border-white/20 transform-gpu"
     >
       <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +92,7 @@ const SuccessPopup = ({ message, onClose, t }: { message: string; onClose: () =>
       <p className="text-white font-bold text-lg mb-6 leading-tight">{message}</p>
       <button 
         onClick={onClose}
-        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-full hover:brightness-110 transition-all shadow-lg shadow-emerald-500/20"
+        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-full hover:brightness-110 active:scale-95 transition-[filter,transform] duration-150 ease-out transform-gpu shadow-lg shadow-emerald-500/20"
       >
         {t.signup.continueToLogin || "Continue to Login"}
       </button>
@@ -102,17 +112,18 @@ interface InputProps {
   required?: boolean;
 }
 
-const CustomInput: React.FC<InputProps> = ({ placeholder, type = "text", icon, delay = 0, value, name, onChange, required }) => {
+const CustomInput: React.FC<InputProps> = memo(({ placeholder, type = "text", icon, delay = 0, value, name, onChange, required }) => {
   const [isFocused, setIsFocused] = useState(false);
   
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-      className="relative w-full"
+      transition={{ duration: 0.28, delay: delay * 0.25, ease: SMOOTH_EASE }}
+      style={{ willChange: "transform, opacity" }}
+      className="relative w-full transform-gpu"
     >
-      <div className={`relative transition-all duration-500 ${isFocused ? 'scale-[1.03]' : 'scale-100'}`}>
+      <div className={`relative transition-transform duration-200 ease-out will-change-transform transform-gpu ${isFocused ? 'scale-[1.03]' : 'scale-100'}`}>
         <input
           type={type}
           value={value}
@@ -120,30 +131,32 @@ const CustomInput: React.FC<InputProps> = ({ placeholder, type = "text", icon, d
           onChange={(e) => onChange(name, e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="w-full bg-white/10 backdrop-blur-md border-2 border-white/30 rounded-full px-4 py-2.5 sm:px-6 sm:py-3 text-white placeholder-white/60 font-medium text-xs sm:text-sm md:text-[15px] outline-none shadow-lg transition-all duration-300 hover:bg-white/15 focus:bg-white/20 focus:border-orange-400/50 focus:shadow-[0_0_20px_rgba(251,146,60,0.2)]"
+          className="w-full bg-white/10 backdrop-blur-md border-2 border-white/30 rounded-full px-4 py-2.5 sm:px-6 sm:py-3 text-white placeholder-white/60 font-medium text-xs sm:text-sm md:text-[15px] outline-none shadow-lg transition-[border-color,background-color,box-shadow] duration-200 ease-out hover:bg-white/15 focus:bg-white/20 focus:border-orange-400/50 focus:shadow-[0_0_20px_rgba(251,146,60,0.2)]"
         />
         {icon && <div className="absolute right-6 top-1/2 -translate-y-1/2 text-white/80 pointer-events-none">{icon}</div>}
       </div>
     </motion.div>
   );
-};
+});
+CustomInput.displayName = "CustomInput";
 
-const CustomSelect: React.FC<InputProps & { options: string[] }> = ({ placeholder, options, delay = 0, value, name, onChange, required }) => {
+const CustomSelect: React.FC<InputProps & { options: string[] }> = memo(({ placeholder, options, delay = 0, value, name, onChange, required }) => {
   const [isFocused, setIsFocused] = useState(false);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }} 
+      initial={{ opacity: 0, y: 12 }} 
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }} 
-      className="relative w-full"
+      transition={{ duration: 0.28, delay: delay * 0.25, ease: SMOOTH_EASE }} 
+      style={{ willChange: "transform, opacity" }}
+      className="relative w-full transform-gpu"
     >
-      <div className={`relative transition-all duration-500 ${isFocused ? 'scale-[1.03]' : 'scale-100'}`}>
+      <div className={`relative transition-transform duration-200 ease-out will-change-transform transform-gpu ${isFocused ? 'scale-[1.03]' : 'scale-100'}`}>
         <select
           value={value}
           onChange={(e) => onChange(name, e.target.value)}
           onFocus={() => setIsFocused(true)} 
           onBlur={() => setIsFocused(false)}
-          className="w-full bg-white/10 backdrop-blur-md border-2 border-white/30 rounded-full px-4 py-2.5 sm:px-6 sm:py-3 text-white font-medium text-xs sm:text-sm md:text-[15px] outline-none shadow-lg appearance-none cursor-pointer hover:bg-white/15 focus:border-orange-400/50"
+          className="w-full bg-white/10 backdrop-blur-md border-2 border-white/30 rounded-full px-4 py-2.5 sm:px-6 sm:py-3 text-white font-medium text-xs sm:text-sm md:text-[15px] outline-none shadow-lg appearance-none cursor-pointer transition-[border-color,background-color] duration-200 ease-out hover:bg-white/15 focus:border-orange-400/50"
         >
           <option value="" disabled hidden>{placeholder}{required ? ' *' : ''}</option>
           {options.map((opt) => (
@@ -158,7 +171,8 @@ const CustomSelect: React.FC<InputProps & { options: string[] }> = ({ placeholde
       </div>
     </motion.div>
   );
-};
+});
+CustomSelect.displayName = "CustomSelect";
 
 // --- 3. MAIN PAGE COMPONENT ---
 export default function SignUp() {
@@ -177,9 +191,9 @@ export default function SignUp() {
     baptismPlace: "",
   });
 
-  const handleUpdate = (name: FormKeys, value: string) => {
+  const handleUpdate = useCallback((name: FormKeys, value: string) => {
     setForm(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
   const triggerAlert = (msg: string, type: 'error' | 'success' = 'error') => {
     setAlert({ show: true, msg, type });
@@ -249,15 +263,15 @@ export default function SignUp() {
     setAlert({ show: false, msg: "", type: 'error' });
   };
 
-  // Get translated options based on language
-  const getCityOptions = () => {
+  // Memoize translated option arrays so React.memo prevents unnecessary select re-renders while typing
+  const cityOptions = useMemo(() => {
     if (language === 'am') {
       return ["አዲስ አበባ"];
     }
     return ["Addis Ababa"];
-  };
+  }, [language]);
 
-  const getSubcityOptions = () => {
+  const subcityOptions = useMemo(() => {
     if (language === 'am') {
       return [
         "አዲስ ከተማ",
@@ -286,31 +300,31 @@ export default function SignUp() {
       "Yeka",
       "Lemi Kura",
     ];
-  };
+  }, [language]);
 
-  const getGenderOptions = () => {
+  const genderOptions = useMemo(() => {
     if (language === 'am') {
       return [t.signup.male, t.signup.female];
     }
     return ["Male", "Female"];
-  };
+  }, [language, t]);
 
-  const getMaritalStatusOptions = () => {
+  const maritalStatusOptions = useMemo(() => {
     if (language === 'am') {
       return [t.signup.single, t.signup.married, t.signup.divorced, t.signup.widowed];
     }
     return ["Single", "Married", "Divorced", "Widowed"];
-  };
+  }, [language, t]);
 
-  const getBaptismPlaceOptions = () => {
+  const baptismPlaceOptions = useMemo(() => {
     if (language === 'am') {
       return [t.signup.madan, t.signup.other];
     }
     return ["Madan", "Other"];
-  };
+  }, [language, t]);
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <Head><title>{t.signup.title}</title></Head>
 
       <AnimatePresence>
@@ -326,13 +340,16 @@ export default function SignUp() {
       <motion.div
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }}
-        className="min-h-screen lg:h-screen w-full flex items-center justify-center p-4 md:p-8 relative bg-cover bg-center bg-fixed"
-        style={{ backgroundImage: "url('/SignUpBg.jpg')" }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        style={{ backgroundImage: "url('/SignUpBg.webp')", willChange: "opacity" }}
+        className="min-h-screen lg:h-screen w-full flex items-center justify-center p-4 md:p-8 relative bg-cover bg-center md:bg-fixed"
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }} 
+          initial={{ opacity: 0, scale: 0.97 }} 
           animate={{ opacity: 1, scale: 1 }}
-          className="relative w-full max-w-[1200px] my-24 bg-white/10 backdrop-blur-md h-auto mt-[30%] sm:mt-[12%] rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-2xl z-10 border border-white/20"
+          transition={{ duration: 0.32, ease: SMOOTH_EASE }}
+          style={{ willChange: "transform, opacity" }}
+          className="relative w-full max-w-[1200px] my-24 bg-white/10 backdrop-blur-md h-auto mt-[30%] sm:mt-[12%] rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 shadow-2xl z-10 border border-white/20 transform-gpu"
         >
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-center md:items-start mb-4 mt-[3%] gap-4">
@@ -349,12 +366,12 @@ export default function SignUp() {
               <CustomInput name="phone" value={form.phone} onChange={handleUpdate} placeholder={t.signup.phone} required delay={0.2} />
               {/* New Address Fields */}
               <div className="grid grid-cols-3 gap-2">
-                <CustomSelect name="city" value={form.city} onChange={handleUpdate} placeholder={t.signup.city} required delay={0.25} options={getCityOptions()} />
-                <CustomSelect name="subcity" value={form.subcity} onChange={handleUpdate} placeholder={t.signup.subcity} required delay={0.3} options={getSubcityOptions()} />
+                <CustomSelect name="city" value={form.city} onChange={handleUpdate} placeholder={t.signup.city} required delay={0.25} options={cityOptions} />
+                <CustomSelect name="subcity" value={form.subcity} onChange={handleUpdate} placeholder={t.signup.subcity} required delay={0.3} options={subcityOptions} />
                 <CustomInput name="woreda" value={form.woreda} onChange={handleUpdate} placeholder={t.signup.woreda} required delay={0.35} />
               </div>
               <div className="flex gap-4">
-                <CustomSelect name="gender" value={form.gender} onChange={handleUpdate} placeholder={t.signup.gender} options={getGenderOptions()} required delay={0.4} />
+                <CustomSelect name="gender" value={form.gender} onChange={handleUpdate} placeholder={t.signup.gender} options={genderOptions} required delay={0.4} />
                 <CustomInput name="age" value={form.age} onChange={handleUpdate} placeholder={t.signup.age} type="number" delay={0.5} />
               </div>
               <CustomInput 
@@ -370,13 +387,13 @@ export default function SignUp() {
                 value={form.baptismPlace} 
                 onChange={handleUpdate} 
                 placeholder={t.signup.baptismPlace}
-                options={getBaptismPlaceOptions()} 
+                options={baptismPlaceOptions} 
                 delay={1.2} 
               />
             </div>
 
             <div className="space-y-3">
-              <CustomSelect name="maritalStatus" value={form.maritalStatus} onChange={handleUpdate} placeholder={t.signup.maritalStatus} options={getMaritalStatusOptions()} required delay={0.6} />
+              <CustomSelect name="maritalStatus" value={form.maritalStatus} onChange={handleUpdate} placeholder={t.signup.maritalStatus} options={maritalStatusOptions} required delay={0.6} />
               <CustomInput name="previousChurch" value={form.previousChurch} onChange={handleUpdate} placeholder={t.signup.previousChurch} delay={0.7} />
               <CustomInput name="email" value={form.email} onChange={handleUpdate} placeholder={t.signup.email} type="email" required delay={0.8} />
               <CustomInput name="password" value={form.password} onChange={handleUpdate} placeholder={t.signup.password} type="password" required delay={0.9} />
@@ -395,7 +412,9 @@ export default function SignUp() {
               disabled={isSubmitting}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`w-full md:w-auto bg-orange-500 text-white font-bold py-3 px-10 rounded-full shadow-2xl transition-all ${
+              transition={{ duration: 0.15, ease: SMOOTH_EASE }}
+              style={{ willChange: "transform" }}
+              className={`w-full md:w-auto bg-orange-500 text-white font-bold py-3 px-10 rounded-full shadow-2xl transition-opacity duration-150 transform-gpu ${
                 isSubmitting ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -406,7 +425,9 @@ export default function SignUp() {
               href="/login"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-full md:w-auto bg-orange-500 text-white font-bold py-3 px-10 rounded-full text-center shadow-2xl transition-all"
+              transition={{ duration: 0.15, ease: SMOOTH_EASE }}
+              style={{ willChange: "transform" }}
+              className="w-full md:w-auto bg-orange-500 text-white font-bold py-3 px-10 rounded-full text-center shadow-2xl transform-gpu"
             >
               {t.signup.backToLogin}
             </motion.a>
@@ -415,6 +436,6 @@ export default function SignUp() {
           
         </motion.div>
       </motion.div>
-    </>
+    </MotionConfig>
   );
 }

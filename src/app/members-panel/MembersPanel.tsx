@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any, react/no-unescaped-entities -- Preserve existing dynamic Supabase payloads and literal UI copy while keeping the build lint-compatible. */
+/* eslint-disable @typescript-eslint/no-explicit-any, react/no-unescaped-entities, @next/next/no-img-element -- Preserve existing dynamic Supabase payloads, literal UI copy, and current image rendering while keeping the build lint-compatible. */
 
 import React, { useState, useEffect } from 'react';
 import { updateMyProfile } from '@/lib/memberActions';
@@ -39,7 +39,6 @@ import {
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../../app/context/LanguageContext';
-import { translations } from '../../app/lib/translations';
 
 const SERVICE_COLORS: any = {
   'Prayer': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', hex: '#10b981' },
@@ -53,8 +52,8 @@ const SERVICE_COLORS: any = {
 
 // Background Image Mapping per Tab
 const BACKGROUND_IMAGES = {
-  calendar: '/ServicesPageYouth.jpg',
-  church: '/center-mission1-phone.jpg',
+  calendar: '/ServicesPageYouth.webp',
+  church: '/center-mission1-phone.webp',
   messages: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&q=80&w=2000',
   profileInfo: 'https://images.unsplash.com/photo-1510519138101-570d1dca3d66?auto=format&fit=crop&q=80&w=2000'
 };
@@ -399,14 +398,12 @@ const SubAdminEventModal = ({ isOpen, mode, formData, onClose, onInputChange, on
 // --- APP PAGE MAIN COMPONENT ---
 export default function App() {
   const { language } = useLanguage();
-  const t = translations[language];
   
   const [activeTab, setActiveTab] = useState<'calendar' | 'church' | 'messages' | 'profileInfo'>('calendar');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [messages, setMessages] = useState<any[]>([]);
   const [messageSubject, setMessageSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -438,17 +435,8 @@ export default function App() {
     setToast({ message, type, isOpen: true });
   };
 
-  useEffect(() => {
-    if (toast?.isOpen) {
-      const timer = setTimeout(() => {
-        setToast(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
   // Management States
-  const [summaryData, setSummaryData] = useState({ id: null, summary_text: '', total_offering: 0, total_alms: 0 ,service_date: new Date().toISOString().split('T')[0]});
+  const [summaryData, setSummaryData] = useState<any>({ id: null, summary_text: '', total_offering: 0, total_alms: 0, service_date: new Date().toISOString().split('T')[0] });
   const [frontendCards, setFrontendCards] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
@@ -487,7 +475,6 @@ const hasEventRole = eventRoles.length > 0;
 const isServiceLead = userData?.role === 'sub-admin' && hasEventRole;
 
 const [managementTab, setManagementTab] = useState<'finance' | 'frontend' | 'guesthouse'>('finance');
-const systemRoles = ['Finance Manager', 'Frontend Manager', 'Guest House manager'];
 
 
 
@@ -524,16 +511,6 @@ const systemRoles = ['Finance Manager', 'Frontend Manager', 'Guest House manager
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUploading, setAudioUploading] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
-
-  const loadUserMessages = async () => {
-  try {
-    // For members, we only show their own messages as confirmation
-    // Actually, members can't see all messages, only admins can
-    // So we don't need to load messages for members
-  } catch (error) {
-    console.error('Error loading messages:', error);
-  }
-};
 
 const handleSendMessage = async () => {
   if (!messageSubject.trim() || !messageContent.trim()) {
@@ -643,7 +620,7 @@ const handleSendMessage = async () => {
     };
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Client-side inactivity session checker
   useEffect(() => {
@@ -1118,7 +1095,7 @@ const handleSaveCard = async () => {
     if (isFrontendManager && managerTab === 'audio') {
       loadAudioFiles();
     }
-  }, [isFrontendManager, managerTab]);
+  }, [isFrontendManager, managerTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -1810,7 +1787,7 @@ const handleSaveCard = async () => {
                       {frontendCards.map(card => (
                         <div key={card.id} className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-white/10 overflow-hidden"><img src={card.image_url} className="w-full h-full object-cover" /></div>
+                            <div className="w-12 h-12 rounded-xl bg-white/10 overflow-hidden"><img src={card.image_url} alt={card.title || "Program card"} className="w-full h-full object-cover" /></div>
                             <div>
                               <h4 className="font-bold text-sm text-white">{card.title}</h4>
                               <p className="text-[10px] text-slate-400 uppercase mt-0.5">{card.day} • {card.time} • {card.is_featured ? (language === 'am' ? 'ተለይቶ' : 'Featured') : (language === 'am' ? 'መደበኛ' : 'Standard')}</p>
@@ -1914,7 +1891,7 @@ const handleSaveCard = async () => {
                           <div className="flex items-center gap-4 overflow-hidden">
                             <div className="w-14 h-14 rounded-xl bg-white/10 overflow-hidden shrink-0">
                               {item.image_url ? (
-                                <img src={item.image_url} className="w-full h-full object-cover" />
+                                <img src={item.image_url} alt={item.title || "News image"} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-400"><BookOpen size={16}/></div>
                               )}

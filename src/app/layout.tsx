@@ -1,20 +1,34 @@
-import Header from './components/ui/Header';
-// import Footer from './components/ui/Footer';
-import Preloader from './components/ui/Preloader';
-import './globals.css';
+
+import type { Viewport } from "next";
+
+import Header from "./components/ui/Header";
+// import Footer from "./components/ui/Footer";
+import Preloader from "./components/ui/Preloader";
+import "./globals.css";
 import { LanguageProvider } from "./context/LanguageContext";
+
 export const metadata = {
-  title: 'Church Website',
-  description: 'Welcome to Madan Church',
+  title: "Church Website",
+  description: "Welcome to Madan Church",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className="h-full">
       <body className="min-h-screen overflow-x-hidden overflow-y-auto">
         <Preloader>
           <LanguageProvider>
-          <main>{children}</main>
+            <main>{children}</main>
           </LanguageProvider>
           {/* <Footer /> */}
         </Preloader>

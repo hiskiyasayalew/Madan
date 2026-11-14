@@ -14,7 +14,7 @@ const AboutConclusion = () => {
       <div 
         className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat hidden md:block"
         style={{ 
-          backgroundImage: "url('/AboutTreeImg.jpg')",
+          backgroundImage: "url('/AboutTreeImg.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
@@ -26,7 +26,7 @@ const AboutConclusion = () => {
       <div 
         className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat md:hidden"
         style={{ 
-          backgroundImage: "url('/AboutTreeImg-Phone.jpg')",
+          backgroundImage: "url('/AboutTreeImg-Phone.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'

@@ -102,7 +102,7 @@ export default function Welcome({
 
   // persist sequence start across scroll
   const [sequenceStarted, setSequenceStarted] = useState(false);
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const welcomeCompleteCalled = useRef(false);
 
   const SECOND_LINE_DELAY_MS = 4500;
@@ -351,7 +351,7 @@ export default function Welcome({
 
   // Phase 4 loop
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (currentPhase === 4) {
       if (phase4Seq === 'seq1') timer = setTimeout(() => setPhase4Seq('seq1_out'), 7000);
       else if (phase4Seq === 'seq1_out') timer = setTimeout(() => setPhase4Seq('seq2'), 3000);
@@ -365,14 +365,23 @@ export default function Welcome({
   useEffect(() => {
     let animFrame: number;
     let startTime: number | null = null;
+    let lastStateUpdate = 0;
     const duration = 7200;
     if (currentPhase === 6 && p6ShavingActive) {
       const step = (timestamp: number) => {
         if (!startTime) startTime = timestamp;
         const progress = Math.min((timestamp - startTime) / duration, 1);
         const pos = -20 + progress * 140;
-        setP6HandPosition(pos);
         p6HandPositionRef.current = pos;
+        // The canvas reads the ref every frame; React only needs to update
+        // the DOM-driven hand/letter animation at a controlled visual rate.
+        if (
+          timestamp - lastStateUpdate >= 33 ||
+          progress >= 1
+        ) {
+          setP6HandPosition(pos);
+          lastStateUpdate = timestamp;
+        }
         const thresholds = [16.67, 33.33, 50.0, 66.67, 83.33, 100.0];
         let count = 0;
         for (let i = 0; i < thresholds.length; i++) {
@@ -389,7 +398,7 @@ export default function Welcome({
 
   // Phase 7-11 timers
   useEffect(() => {
-    let t1: NodeJS.Timeout, t2: NodeJS.Timeout, t3: NodeJS.Timeout, tReset: NodeJS.Timeout;
+    let t1: ReturnType<typeof setTimeout>, t2: ReturnType<typeof setTimeout>, t3: ReturnType<typeof setTimeout>, tReset: ReturnType<typeof setTimeout>;
     if (currentPhase === 7) {
       setShowP7Text1(false); setShowP7Text2(false); setShowP7Text3(false);
       setP7StoneRolling(false); setP7Earthquake(false); setP7ShowStone(false);
@@ -402,13 +411,13 @@ export default function Welcome({
   }, [currentPhase]);
 
   useEffect(() => {
-    let tReset: NodeJS.Timeout;
+    let tReset: ReturnType<typeof setTimeout>;
     if (currentPhase === 8) tReset = setTimeout(() => setCurrentPhase(9), 7500);
     return () => clearTimeout(tReset);
   }, [currentPhase]);
 
   useEffect(() => {
-    let tReset: NodeJS.Timeout, tWord: NodeJS.Timeout;
+    let tReset: ReturnType<typeof setTimeout>, tWord: ReturnType<typeof setTimeout>;
     if (currentPhase === 9) {
       setPhase9Word("Worthy");
       tWord = setTimeout(() => setPhase9Word("Perfect"), 5500);
@@ -418,7 +427,7 @@ export default function Welcome({
   }, [currentPhase]);
 
   useEffect(() => {
-    let tSeq2: NodeJS.Timeout, tSeq3: NodeJS.Timeout, tReset: NodeJS.Timeout;
+    let tSeq2: ReturnType<typeof setTimeout>, tSeq3: ReturnType<typeof setTimeout>, tReset: ReturnType<typeof setTimeout>;
     if (currentPhase === 10) {
       setP10Seq(1); setP10Shake(true);
       tSeq2 = setTimeout(() => { setP10Seq(2); setP10Shake(false); }, 4500);
@@ -433,7 +442,7 @@ export default function Welcome({
     setP11TextIndex(0);
     setP11ShakeIntensity(0);
     let active = true;
-    let timerId: NodeJS.Timeout;
+    let timerId: ReturnType<typeof setTimeout>;
     const startTime = Date.now();
     const tick = () => {
       if (!active) return;
@@ -515,9 +524,13 @@ export default function Welcome({
           }
         }
       }
-      particles.forEach((p, idx) => {
+      for (let idx = particles.length - 1; idx >= 0; idx--) {
+        const p = particles[idx];
         p.vy += 0.16; p.vx *= 0.97; p.x += p.vx; p.y += p.vy; p.angle += p.vr; p.alpha -= p.decay;
-        if (p.alpha <= 0) { particles.splice(idx, 1); return; }
+        if (p.alpha <= 0) {
+          particles.splice(idx, 1);
+          continue;
+        }
         ctx.save();
         ctx.strokeStyle = `${p.color}${p.alpha})`;
         ctx.fillStyle = `${p.color}${p.alpha})`;
@@ -544,10 +557,15 @@ export default function Welcome({
           ctx.fill();
         }
         ctx.restore();
-      });
-      animFrame = requestAnimationFrame(renderLoop);
+      }
+      // No need to run an empty canvas continuously before/after shaving.
+      if (p6ShavingActive || particles.length > 0) {
+        animFrame = requestAnimationFrame(renderLoop);
+      }
     };
-    animFrame = requestAnimationFrame(renderLoop);
+    if (p6ShavingActive) {
+      animFrame = requestAnimationFrame(renderLoop);
+    }
     return () => {
       window.removeEventListener("resize", handleResize);
       if (animFrame) cancelAnimationFrame(animFrame);
@@ -1126,12 +1144,16 @@ export default function Welcome({
           ctx.restore();
         });
 
-        dustParticles.forEach((p, index) => {
+        for (let index = dustParticles.length - 1; index >= 0; index--) {
+          const p = dustParticles[index];
           p.x += p.vx;
           p.y += p.vy;
           p.size += 0.16;
           p.alpha -= p.decay;
-          if (p.alpha <= 0) { dustParticles.splice(index, 1); return; }
+          if (p.alpha <= 0) {
+            dustParticles.splice(index, 1);
+            continue;
+          }
           ctx.beginPath();
           const dustGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
           dustGrad.addColorStop(0, `rgba(139, 115, 85, ${p.alpha * 0.7})`);
@@ -1139,14 +1161,18 @@ export default function Welcome({
           ctx.fillStyle = dustGrad;
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
-        });
+        }
 
-        steamParticles.forEach((p, index) => {
+        for (let index = steamParticles.length - 1; index >= 0; index--) {
+          const p = steamParticles[index];
           p.x += p.vx;
           p.y += p.vy;
           p.size += 0.22;
           p.alpha -= p.decay;
-          if (p.alpha <= 0) { steamParticles.splice(index, 1); return; }
+          if (p.alpha <= 0) {
+            steamParticles.splice(index, 1);
+            continue;
+          }
           ctx.beginPath();
           const steamGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
           steamGrad.addColorStop(0, `rgba(220, 220, 225, ${p.alpha * 0.6})`);
@@ -1154,7 +1180,7 @@ export default function Welcome({
           ctx.fillStyle = steamGrad;
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
-        });
+        }
       }
 
       animationFrameId = requestAnimationFrame(draw);
@@ -1522,7 +1548,7 @@ export default function Welcome({
                   }`}
                 />
                 <img
-                  src={p3Step === 0 ? "/WelcomeImg1.jpg" : p3Step === 1 ? "/WelcomeImg2.jpg" : "/WelcomeImg3.jpg"}
+                  src={p3Step === 0 ? "/WelcomeImg1.webp" : p3Step === 1 ? "/WelcomeImg2.webp" : "/WelcomeImg3.webp"}
                   alt={`Phase 3 - Step ${p3Step}`}
                   referrerPolicy="no-referrer"
                   className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-40"
@@ -1807,14 +1833,14 @@ export default function Welcome({
                 
                 {/* Image layer supporting Roman Map images */}
                 <img
-                  src="/WelcomeImg4.jpg"
+                  src="/WelcomeImg4.webp"
                   alt="Ancient Roman Map Backdrop"
                   referrerPolicy="no-referrer"
                   className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-[0.38]"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (target.src.endsWith("/WelcomeImg4.jpg")) {
-                      target.src = "/WelcomeImg4.jpg";
+                    if (target.src.endsWith("/WelcomeImg4.webp")) {
+                      target.src = "/WelcomeImg4.webp";
                     } else {
                       target.style.display = 'none';
                     }
@@ -1828,10 +1854,11 @@ export default function Welcome({
               {/* 2. LIVING INFERNO COMPASS SPARKS AND BURNING EMBERS COAL FLAMES BACKGROUND */}
               <div className="absolute inset-x-0 bottom-0 top-0 z-5 pointer-events-none overflow-hidden opacity-50 select-none">
                 {Array.from({ length: 30 }).map((_, i) => {
-                  const size = Math.random() * 4 + 2;
-                  const delay = Math.random() * 6;
-                  const duration = Math.random() * 8 + 6;
-                  const horizOffset = Math.random() * 100;
+                  const seed = (i * 7919 + 104729) % 1000;
+                  const size = 2 + (seed % 400) / 100;
+                  const delay = (seed % 600) / 100;
+                  const duration = 6 + ((seed * 7) % 800) / 100;
+                  const horizOffset = (seed * 37) % 100;
                   return (
                     <motion.div
                       key={`ember-active-${i}`}
@@ -1842,12 +1869,12 @@ export default function Welcome({
                         width: `${size}px`,
                         height: `${size}px`,
                         borderRadius: "50%",
-                        background: Math.random() > 0.35 ? "#ef4444" : "#f97316",
+                        background: seed % 10 > 3 ? "#ef4444" : "#f97316",
                         filter: "blur(1.2px) drop-shadow(0 0 10px rgba(239, 68, 68, 0.95))",
                       }}
                       animate={{
-                        y: [0, -window.innerHeight - 80],
-                        x: [0, (Math.random() - 0.5) * 180],
+                        y: ["0vh", "-110vh"],
+                        x: [0, ((seed * 19) % 180) - 90],
                         opacity: [0, 0.95, 0.4, 0],
                       }}
                       transition={{
@@ -2577,7 +2604,7 @@ export default function Welcome({
         
         {/* Image layer - fades out smoothly while maintaining gradient */}
         <motion.img
-          src="/WelcomeImg5.jpg"
+          src="/WelcomeImg5.webp"
           alt="Ancient Empire"
           referrerPolicy="no-referrer"
           initial={{ opacity: 0.4 }}
@@ -2996,7 +3023,7 @@ export default function Welcome({
                 
                 {/* Image layer - they will replace this image */}
                 <motion.img
-                  src="/WelcomeImg8.jpg"
+                  src="/WelcomeImg8.webp"
                   alt="Nazareth Carpenter"
                   referrerPolicy="no-referrer"
                   initial={{ opacity: 0.35 }}
@@ -3053,7 +3080,7 @@ export default function Welcome({
       <div className="absolute inset-0 z-0 pointer-events-none select-none">
         <div className="absolute inset-0 bg-gradient-to-tr from-[#140b02] to-[#050201]" />
         <motion.img
-          src="/WelcomeImg9.jpg"
+          src="/WelcomeImg9.webp"
           alt="Worthy Person"
           referrerPolicy="no-referrer"
           initial={{ opacity: 0.32 }}
@@ -3416,11 +3443,12 @@ export default function Welcome({
               {/* Many more twinkling stars - increased count to 200 */}
               <div className="absolute inset-0 opacity-90">
                 {Array.from({ length: 200 }).map((_, i) => {
-                  const left = `${Math.random() * 100}%`;
-                  const top = `${Math.random() * 100}%`;
-                  const delay = Math.random() * 8;
-                  const size = Math.random() > 0.7 ? "w-1.5 h-1.5" : "w-1 h-1";
-                  const brightness = Math.random() > 0.8 ? 0.95 : 0.5;
+                  const seed = (i * 7919 + 104729) % 1000;
+                  const left = `${(seed * 37) % 100}%`;
+                  const top = `${(seed * 61) % 100}%`;
+                  const delay = ((seed * 13) % 800) / 100;
+                  const size = seed % 10 > 6 ? "w-1.5 h-1.5" : "w-1 h-1";
+                  const brightness = seed % 10 > 7 ? 0.95 : 0.5;
                   return (
                     <motion.div
                       key={i}
@@ -3431,7 +3459,7 @@ export default function Welcome({
                       }}
                       transition={{ 
                         repeat: Infinity, 
-                        duration: 2 + Math.random() * 3, 
+                        duration: 2 + ((seed * 17) % 300) / 100, 
                         delay, 
                         ease: "easeInOut" 
                       }}
@@ -3659,24 +3687,31 @@ export default function Welcome({
 
             {/* Animated golden particles floating around the scrolls */}
             <div className="absolute bottom-12 inset-x-0 pointer-events-none">
-              {Array.from({ length: 40 }).map((_, i) => (
-                <motion.div
-                  key={`particle-${i}`}
-                  initial={{ x: Math.random() * window.innerWidth, y: window.innerHeight - 100, opacity: 0 }}
-                  animate={{ 
-                    y: [window.innerHeight - 100, window.innerHeight - 250, window.innerHeight - 450],
-                    opacity: [0, 0.5, 0],
-                    x: (Math.random() - 0.5) * 250
-                  }}
-                  transition={{ 
-                    repeat: Infinity, 
-                    duration: 3 + Math.random() * 3,
-                    delay: i * 0.1,
-                    ease: "easeOut"
-                  }}
-                  className="absolute w-1 h-1 rounded-full bg-yellow-400 filter blur-[1px]"
-                />
-              ))}
+              {Array.from({ length: 40 }).map((_, i) => {
+                const seed = (i * 7919 + 104729) % 1000;
+                const left = `${(seed * 37) % 100}%`;
+                const drift = ((seed * 17) % 250) - 125;
+
+                return (
+                  <motion.div
+                    key={`particle-${i}`}
+                    initial={{ y: "100vh", opacity: 0 }}
+                    animate={{
+                      y: ["100vh", "75vh", "50vh"],
+                      opacity: [0, 0.5, 0],
+                      x: [0, drift, 0],
+                    }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 3 + ((seed * 23) % 300) / 100,
+                      delay: i * 0.1,
+                      ease: "easeOut",
+                    }}
+                    style={{ left }}
+                    className="absolute w-1 h-1 rounded-full bg-yellow-400 filter blur-[1px]"
+                  />
+                );
+              })}
             </div>
           </motion.div>
         )}

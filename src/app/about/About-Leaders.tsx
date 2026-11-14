@@ -125,11 +125,11 @@ const AboutLeaders = () => {
                 {/* Image Container */}
                 <div className="relative aspect-[3/4] overflow-hidden">
                   <img
-                    src={leader.image_url || '/default-leader.jpg'}
+                    src={leader.image_url || '/default-leader.webp'}
                     alt={leader.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/default-leader.jpg';
+                      (e.target as HTMLImageElement).src = '/default-leader.webp';
                     }}
                   />
                   {/* Overlay Gradient */}

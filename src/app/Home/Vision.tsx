@@ -2,154 +2,185 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { useLanguage } from '../context/LanguageContext'; // Adjust path as needed
-import { translations } from '../lib/translations'; // Adjust path as needed
+import { useLanguage } from "../context/LanguageContext";
+import { translations } from "../lib/translations";
 
 interface VisionProps {
   preloaderCompleted: boolean;
 }
 
+const getWidthBreakpoint = (width: number) => {
+  if (width < 380) return 0;
+  if (width < 640) return 380;
+  if (width < 768) return 640;
+  if (width < 1024) return 768;
+  if (width < 1280) return 1024;
+  return 1280;
+};
+
 export default function Vision({ preloaderCompleted }: VisionProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
+  const ref = useRef<HTMLElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [responsiveWidth, setResponsiveWidth] = useState(0);
+
+  const isVisibleRef = useRef(false);
+  const exitTimeoutRef = useRef<number | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+
   const { language } = useLanguage();
   const t = translations[language];
-
   const title = t.vision.visionTitle;
 
-  // Handle window resize for responsive adjustments
+  // Update responsive state only when crossing a breakpoint used by this section.
   useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight
+    const updateResponsiveWidth = () => {
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        const nextBreakpoint = getWidthBreakpoint(window.innerWidth);
+        setResponsiveWidth((current) =>
+          current === nextBreakpoint ? current : nextBreakpoint
+        );
+        resizeFrameRef.current = null;
       });
     };
-    
-    handleResize(); // Set initial size
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    updateResponsiveWidth();
+    window.addEventListener("resize", updateResponsiveWidth, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", updateResponsiveWidth);
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+    };
   }, []);
 
+  // Keep one observer instance and cancel the exit timer if the section re-enters view.
   useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && preloaderCompleted) {
+          if (exitTimeoutRef.current !== null) {
+            window.clearTimeout(exitTimeoutRef.current);
+            exitTimeoutRef.current = null;
+          }
+
+          isVisibleRef.current = true;
           setIsAnimatingOut(false);
           setIsVisible(true);
-        } else if (!entry.isIntersecting && isVisible) {
+        } else if (!entry.isIntersecting && isVisibleRef.current) {
+          isVisibleRef.current = false;
           setIsAnimatingOut(true);
-          setTimeout(() => {
+
+          if (exitTimeoutRef.current !== null) {
+            window.clearTimeout(exitTimeoutRef.current);
+          }
+
+          exitTimeoutRef.current = window.setTimeout(() => {
             setIsVisible(false);
             setIsAnimatingOut(false);
+            exitTimeoutRef.current = null;
           }, 600);
         }
       },
       { threshold: 0.3 }
     );
 
-    if (ref.current) observer.observe(ref.current);
-    return () => {
-      if (ref.current) observer.unobserve(ref.current);
-    };
-  }, [preloaderCompleted, isVisible]);
+    observer.observe(element);
 
-  // Responsive font sizes and spacing
+    return () => {
+      observer.disconnect();
+      if (exitTimeoutRef.current !== null) {
+        window.clearTimeout(exitTimeoutRef.current);
+        exitTimeoutRef.current = null;
+      }
+    };
+  }, [preloaderCompleted]);
+
+  // The stored value is the active breakpoint, not the continuously changing viewport width.
+  const width = responsiveWidth;
+
   const getResponsiveValues = () => {
-    const { width } = windowSize;
-    
-    // Mobile first approach - INCREASED LINE WIDTHS TO MATCH MISSION
-    if (width < 640) { // sm
+    if (width < 640) {
       return {
         titleSize: "text-5xl",
         padding: "p-6",
         maxWidth: "max-w-sm",
-        lineWidth: "w-24", // Increased from w-16 to match Mission
+        lineWidth: "w-24",
         paragraphSize: "text-xs",
         spacing: "mt-2 mb-5",
-        gap: "gap-1"
+        gap: "gap-1",
       };
-    } else if (width < 768) { // md
+    } else if (width < 768) {
       return {
         titleSize: "text-6xl",
         padding: "p-8",
         maxWidth: "max-w-md",
-        lineWidth: "w-32", // Increased from w-20 to match Mission
+        lineWidth: "w-32",
         paragraphSize: "text-sm",
         spacing: "mt-2 mb-6",
-        gap: "gap-1"
+        gap: "gap-1",
       };
-    } else if (width < 1024) { // lg
+    } else if (width < 1024) {
       return {
         titleSize: "text-7xl",
         padding: "p-10 md:p-16",
         maxWidth: "max-w-lg",
-        lineWidth: "w-40", // Increased from w-24 to match Mission
+        lineWidth: "w-40",
         paragraphSize: "text-base",
         spacing: "mt-3 mb-7",
-        gap: "gap-2"
+        gap: "gap-2",
       };
-    } else if (width < 1280) { // xl
+    } else if (width < 1280) {
       return {
         titleSize: "text-8xl",
         padding: "p-12 md:p-20",
         maxWidth: "max-w-xl",
-        lineWidth: "w-48", // Increased from w-28 to match Mission
+        lineWidth: "w-48",
         paragraphSize: "text-base md:text-lg",
         spacing: "mt-3 mb-8",
-        gap: "gap-2"
-      };
-    } else { // 2xl and above
-      return {
-        titleSize: "text-8xl lg:text-9xl",
-        padding: "p-14 md:p-24",
-        maxWidth: "max-w-2xl",
-        lineWidth: "w-56", // Increased from w-32 to match Mission
-        paragraphSize: "text-lg lg:text-lg",
-        spacing: "mt-3 mb-8",
-        gap: "gap-3"
+        gap: "gap-2",
       };
     }
-  };
 
-  const responsive = getResponsiveValues();
-
-  // Responsive background positioning
-  const getBackgroundStyle = () => {
-    const { width } = windowSize;
-    
-    // Adjust background position for mobile to ensure focal point is visible
-    if (width < 640) {
-      return {
-        backgroundImage: "url('/VisionBg.jpg')",
-        backgroundPosition: "70% center",
-        backgroundSize: "cover"
-      };
-    }
     return {
-      backgroundImage: "url('/VisionBg.jpg')",
-      backgroundPosition: "center",
-      backgroundSize: "cover"
+      titleSize: "text-8xl lg:text-9xl",
+      padding: "p-14 md:p-24",
+      maxWidth: "max-w-2xl",
+      lineWidth: "w-56",
+      paragraphSize: "text-lg lg:text-lg",
+      spacing: "mt-3 mb-8",
+      gap: "gap-3",
     };
   };
 
-  // Responsive gradient intensity
-  const getGradientClass = () => {
-    const { width } = windowSize;
-    
-    if (width < 640) {
-      return "bg-gradient-to-tl from-black/95 via-black/60 to-transparent";
-    }
-    return "bg-gradient-to-tl from-black/95 via-black/40 to-transparent";
+  const responsive = getResponsiveValues();
+  const isSmallPhone = width < 380;
+  const isMobile = width < 640;
+  const showPattern = width >= 1024;
+
+  const backgroundStyle = {
+    backgroundImage: "url('/VisionBg.webp')",
+    backgroundPosition: isMobile ? "70% center" : "center",
+    backgroundSize: "cover",
   };
+
+  const gradientClass = isMobile
+    ? "bg-gradient-to-tl from-black/95 via-black/60 to-transparent"
+    : "bg-gradient-to-tl from-black/95 via-black/40 to-transparent";
 
   return (
     <motion.section
       ref={ref}
       className="relative top-0 w-full h-screen flex items-center justify-center bg-cover bg-center overflow-hidden"
-      style={getBackgroundStyle()}
+      style={backgroundStyle}
       initial={{ x: 0, opacity: 1 }}
       exit={{ x: "-100%", opacity: 0 }}
       transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
@@ -161,15 +192,16 @@ export default function Vision({ preloaderCompleted }: VisionProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`absolute inset-0 z-10 ${getGradientClass()}`}
+            className={`absolute inset-0 z-10 ${gradientClass}`}
           />
         )}
       </AnimatePresence>
 
       {/* 2. Content Container - Responsive positioning */}
-      <div className={`absolute inset-0 z-20 flex flex-col justify-end items-end ${responsive.padding} text-right pointer-events-none`}>
+      <div
+        className={`absolute inset-0 z-20 flex flex-col justify-end items-end ${responsive.padding} text-right pointer-events-none`}
+      >
         <div className={`flex flex-col items-end ${responsive.maxWidth} w-full`}>
-          
           {/* Title Reveal - Mission style font (normal weight) */}
           <div className="overflow-hidden">
             {isVisible && (
@@ -178,16 +210,22 @@ export default function Vision({ preloaderCompleted }: VisionProps) {
                   <motion.span
                     key={index}
                     initial={{ y: "100%", opacity: 0 }}
-                    animate={isAnimatingOut ? { y: "100%", opacity: 0 } : { y: "0%", opacity: 1 }}
+                    animate={
+                      isAnimatingOut
+                        ? { y: "100%", opacity: 0 }
+                        : { y: "0%", opacity: 1 }
+                    }
                     transition={{
                       duration: 0.6,
                       ease: [0.33, 1, 0.68, 1],
-                      delay: isAnimatingOut ? (title.length - 1 - index) * 0.05 : index * 0.05,
+                      delay: isAnimatingOut
+                        ? (title.length - 1 - index) * 0.05
+                        : index * 0.05,
                     }}
-                    className={`inline-block text-white font-normal ${responsive.titleSize} leading-none uppercase `}
+                    className={`inline-block text-white font-normal ${responsive.titleSize} leading-none uppercase`}
                     style={{
-                      letterSpacing: windowSize.width < 380 ? '0em' : '-0.05em',
-                      fontFamily: 'var(--font-montserrat), sans-serif'
+                      letterSpacing: isSmallPhone ? "0em" : "-0.05em",
+                      fontFamily: "var(--font-montserrat), sans-serif",
                     }}
                   >
                     {char === " " ? "\u00A0" : char}
@@ -198,17 +236,21 @@ export default function Vision({ preloaderCompleted }: VisionProps) {
           </div>
 
           {/* Orange Line under title - RESTORED */}
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={isAnimatingOut ? { width: 0 } : { width: '80px' }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
-                    className="h-[4px] bg-[#F79520] mt-2 mb-6 mr-[0%]" 
-                  />
+          <motion.div
+            initial={{ width: 0 }}
+            animate={isAnimatingOut ? { width: 0 } : { width: "80px" }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="h-[4px] bg-[#F79520] mt-2 mb-6 mr-[0%]"
+          />
 
           {/* Paragraph Reveal */}
           <motion.div
             initial={{ x: 20, opacity: 0 }}
-            animate={isVisible && !isAnimatingOut ? { x: 0, opacity: 1 } : { x: 20, opacity: 0 }}
+            animate={
+              isVisible && !isAnimatingOut
+                ? { x: 0, opacity: 1 }
+                : { x: 20, opacity: 0 }
+            }
             transition={{
               duration: 0.6,
               ease: [0.33, 1, 0.68, 1],
@@ -217,27 +259,29 @@ export default function Vision({ preloaderCompleted }: VisionProps) {
             className="w-full"
           >
             <p
-          className={`text-white/80 font-light ${responsive.paragraphSize} leading-relaxed mb-3 sm:mb-4`}
-        >
-          {t.vision.visionDescription}
-        </p>
-           
+              className={`text-white/80 font-light ${responsive.paragraphSize} leading-relaxed mb-3 sm:mb-4`}
+            >
+              {t.vision.visionDescription}
+            </p>
           </motion.div>
         </div>
       </div>
 
       {/* Base Background Dimmer */}
-      <div 
+      <div
         className="absolute inset-0 z-0"
-        style={{ 
-          backgroundColor: `rgba(0,0,0,${windowSize.width < 640 ? 0.3 : 0.2})` 
-        }}
+        style={{ backgroundColor: `rgba(0,0,0,${isMobile ? 0.3 : 0.2})` }}
       />
 
       {/* Optional pattern overlay */}
-      {windowSize.width >= 1024 && (
-        <div className="absolute inset-0 z-[1] opacity-10 pointer-events-none" 
-             style={{ backgroundImage: "url('/subtle-pattern.png')", backgroundRepeat: "repeat" }} />
+      {showPattern && (
+        <div
+          className="absolute inset-0 z-[1] opacity-10 pointer-events-none"
+          style={{
+            backgroundImage: "url('/subtle-pattern.png')",
+            backgroundRepeat: "repeat",
+          }}
+        />
       )}
     </motion.section>
   );

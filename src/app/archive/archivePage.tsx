@@ -1,7 +1,7 @@
 // app/archive/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { getArchiveItems, PreachingItem } from '@/lib/archiveActions';
 import { 
   Play, Pause, Volume2, VolumeX, Download, Calendar, 
@@ -12,26 +12,43 @@ import Link from 'next/link';
 import { useLanguage } from '../context/LanguageContext';
 import { translations } from '../lib/translations';
 
+const formatTime = (time: number) => {
+  if (!Number.isFinite(time) || time < 0) return '0:00';
+  const minutes = Math.floor(time / 60);
+  const seconds = Math.floor(time % 60);
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+};
+
 export default function ArchivePage() {
   const { language } = useLanguage();
   const t = translations[language];
-  
+
   const [preachings, setPreachings] = useState<PreachingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadPreachings() {
       try {
         const items = await getArchiveItems();
-        setPreachings(items);
+        if (isMounted) setPreachings(items);
       } catch (err) {
         console.error("Failed to load preachings", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     loadPreachings();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const visiblePreachings = useMemo(() => preachings.slice(0, 4), [preachings]);
+
+  const handleSetActiveTrackId = useCallback((id: string | null) => {
+    setActiveTrackId(id);
   }, []);
 
   return (
@@ -133,12 +150,12 @@ export default function ArchivePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {preachings.slice(0, 4).map((track) => (
+            {visiblePreachings.map((track) => (
               <AudioPlayerCard 
                 key={track.id} 
                 track={track} 
-                activeTrackId={activeTrackId} 
-                setActiveTrackId={setActiveTrackId}
+                isActive={activeTrackId === track.id} 
+                setActiveTrackId={handleSetActiveTrackId}
                 t={t}
               />
             ))}
@@ -149,29 +166,57 @@ export default function ArchivePage() {
   );
 }
 
-// Custom Audio Player component
-function AudioPlayerCard({ 
+// Custom Audio Player component (memoized + zero re-renders during playback)
+const AudioPlayerCard = memo(function AudioPlayerCard({ 
   track, 
-  activeTrackId, 
+  isActive, 
   setActiveTrackId,
   t
 }: { 
   track: PreachingItem; 
-  activeTrackId: string | null; 
+  isActive: boolean; 
   setActiveTrackId: (id: string | null) => void;
   t: any;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const scrubberRef = useRef<HTMLInputElement | null>(null);
+  const currentTimeRef = useRef<HTMLSpanElement | null>(null);
+  const durationRef = useRef<HTMLSpanElement | null>(null);
+  const isScrubbingRef = useRef(false);
+
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
 
+  const formattedDate = useMemo(
+    () =>
+      new Date(track.date_preached).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [track.date_preached]
+  );
+
+  const pauseTrack = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (activeTrackId !== track.id && isPlaying) {
+    if (!isActive && isPlaying) {
       pauseTrack();
     }
-  }, [activeTrackId]);
+  }, [isActive, isPlaying, pauseTrack]);
+
+  const playTrack = () => {
+    if (audioRef.current) {
+      audioRef.current.play().catch((err) => console.error("Playback failed:", err));
+      setIsPlaying(true);
+      setActiveTrackId(track.id || null);
+    }
+  };
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -181,30 +226,27 @@ function AudioPlayerCard({
     }
   };
 
-  const playTrack = () => {
-    if (audioRef.current) {
-      audioRef.current.play();
-      setIsPlaying(true);
-      setActiveTrackId(track.id || null);
-    }
-  };
-
-  const pauseTrack = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+    const audio = audioRef.current;
+    if (!audio || isScrubbingRef.current) return;
+    const time = audio.currentTime;
+    if (scrubberRef.current) {
+      scrubberRef.current.value = String(time);
+    }
+    if (currentTimeRef.current) {
+      currentTimeRef.current.textContent = formatTime(time);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
+    const audio = audioRef.current;
+    if (!audio) return;
+    const dur = audio.duration;
+    if (scrubberRef.current) {
+      scrubberRef.current.max = String(Number.isFinite(dur) ? dur : 100);
+    }
+    if (durationRef.current) {
+      durationRef.current.textContent = formatTime(dur);
     }
   };
 
@@ -212,7 +254,9 @@ function AudioPlayerCard({
     const time = Number(e.target.value);
     if (audioRef.current) {
       audioRef.current.currentTime = time;
-      setCurrentTime(time);
+    }
+    if (currentTimeRef.current) {
+      currentTimeRef.current.textContent = formatTime(time);
     }
   };
 
@@ -223,21 +267,22 @@ function AudioPlayerCard({
     }
   };
 
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
-
   return (
-    <div className="bg-[#1b1411]/80 border border-white/10 rounded-[2rem] p-6 flex flex-col justify-between hover:border-[#f97316]/30 transition-all duration-300 relative group overflow-hidden">
+    <div className="bg-[#1b1411]/80 border border-white/10 rounded-[2rem] p-6 flex flex-col justify-between hover:border-[#f97316]/30 transition-colors duration-300 relative group overflow-hidden">
       
-      <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-[#f97316]/5 rounded-full blur-3xl pointer-events-none group-hover:bg-[#f97316]/10 transition-colors" />
+      {/* Lightweight radial-gradient glow instead of heavy blur-3xl */}
+      <div
+        className="absolute -bottom-24 -right-24 w-56 h-56 rounded-full pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.03) 45%, transparent 70%)',
+        }}
+      />
 
       <audio 
         ref={audioRef}
         src={track.audio_url}
+        preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={() => setIsPlaying(false)}
@@ -256,14 +301,14 @@ function AudioPlayerCard({
               <User size={12} className="text-stone-500" /> {track.speaker}
             </span>
             <span className="flex items-center gap-1">
-              <Calendar size={12} className="text-stone-500" /> {new Date(track.date_preached).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <Calendar size={12} className="text-stone-500" /> {formattedDate}
             </span>
           </div>
         </div>
         
         <button 
           onClick={togglePlay}
-          className="w-12 h-12 rounded-full bg-[#f97316] text-white flex items-center justify-center hover:bg-orange-600 shadow-lg shadow-orange-500/10 active:scale-95 transition-transform shrink-0"
+          className="w-12 h-12 rounded-full bg-[#f97316] text-white flex items-center justify-center hover:bg-orange-600 shadow-lg shadow-orange-500/10 active:scale-95 transition-[transform,background-color] shrink-0"
         >
           {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-1" />}
         </button>
@@ -278,16 +323,20 @@ function AudioPlayerCard({
       {/* Player Interface / Controls */}
       <div className="mt-6 space-y-2">
         <input 
+          ref={scrubberRef}
           type="range"
           min="0"
-          max={duration || 100}
-          value={currentTime}
+          max="100"
+          defaultValue="0"
+          onPointerDown={() => { isScrubbingRef.current = true; }}
+          onPointerUp={() => { isScrubbingRef.current = false; }}
+          onPointerCancel={() => { isScrubbingRef.current = false; }}
           onChange={handleScrub}
-          className="w-full h-1 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-[#f97316] transition-all"
+          className="w-full h-1 bg-stone-800 rounded-lg appearance-none cursor-pointer accent-[#f97316]"
         />
 
         <div className="flex justify-between items-center text-xs text-stone-500 font-mono">
-          <span>{formatTime(currentTime)}</span>
+          <span ref={currentTimeRef}>0:00</span>
           <div className="flex items-center gap-3">
             <button onClick={toggleMute} className="text-stone-400 hover:text-white transition-colors">
               {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
@@ -303,10 +352,10 @@ function AudioPlayerCard({
               <Download size={14} />
             </a>
           </div>
-          <span>{formatTime(duration)}</span>
+          <span ref={durationRef}>0:00</span>
         </div>
       </div>
 
     </div>
   );
-}
+});
